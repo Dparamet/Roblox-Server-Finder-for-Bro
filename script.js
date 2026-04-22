@@ -36,15 +36,19 @@
         'fr': { label: 'France', flag: '🇫🇷', group: 'Europe', keywords: ['paris','france','|fr|','cdg'] },
     };
 
-    const GROUP_ORDER = ['Asia', 'Americas', 'Europe'];
-
     let state = {
         scanning: false,
         token: 0,
         pool: [],
-        filter: 'all',
         sortBy: 'ping',
+        page: 1,
     };
+
+    const PAGE_SIZE = 50;
+    const CACHE_TTL_MS = 45000;
+    let cooldownTimer = null;
+    const activeRequests = new Set();
+    const scanCache = new Map();
 
     // ==============================
     //  RATE LIMITER
@@ -63,6 +67,38 @@
 
     function recordScan() {
         RATE_LIMIT.scans.push(Date.now());
+    }
+
+    function abortActiveRequests() {
+        for (const request of activeRequests) {
+            try {
+                request.abort?.();
+            } catch (e) {
+                // Ignore abort errors.
+            }
+        }
+        activeRequests.clear();
+    }
+
+    function getCacheKey(placeId) {
+        return `${placeId}|${MAX_PAGES}|${MAX_PING}`;
+    }
+
+    function getCachedPool(placeId) {
+        const entry = scanCache.get(getCacheKey(placeId));
+        if (!entry) return null;
+        if (Date.now() - entry.ts > CACHE_TTL_MS) {
+            scanCache.delete(getCacheKey(placeId));
+            return null;
+        }
+        return entry.pool;
+    }
+
+    function setCachedPool(placeId, pool) {
+        scanCache.set(getCacheKey(placeId), {
+            ts: Date.now(),
+            pool: pool.map(item => ({ ...item })),
+        });
     }
 
     function getTimeUntilNextScan() {
@@ -93,9 +129,13 @@
     }
 
     function startCooldownTimer(ui) {
-        const interval = setInterval(() => {
+        if (cooldownTimer) clearInterval(cooldownTimer);
+        cooldownTimer = setInterval(() => {
             updateRateLimitUI(ui);
-            if (getTimeUntilNextScan() <= 0) clearInterval(interval);
+            if (getTimeUntilNextScan() <= 0) {
+                clearInterval(cooldownTimer);
+                cooldownTimer = null;
+            }
         }, 500);
     }
 
@@ -108,7 +148,7 @@
 
     function httpGet(url) {
         return new Promise((resolve, reject) => {
-            GM_xmlhttpRequest({
+            const request = GM_xmlhttpRequest({
                 method: 'GET',
                 url: url,
                 timeout: 15000,
@@ -134,8 +174,10 @@
                     }
                 },
                 onerror: () => reject('NETWORK_ERROR'),
+                onabort: () => reject('ABORTED'),
                 ontimeout: () => reject('TIMEOUT'),
             });
+            activeRequests.add(request);
         });
     }
 
@@ -192,6 +234,12 @@
         return 'Poor';
     }
 
+    function getLocationLabel(regionTag) {
+        const info = REGIONS[regionTag];
+        if (!info) return 'Unknown';
+        return info.group ? `${info.group}/${info.label}` : info.label;
+    }
+
     // ==============================
     //  SCAN LOGIC
     // ==============================
@@ -202,11 +250,22 @@
             return;
         }
 
+        const cachedPool = getCachedPool(placeId);
+        if (cachedPool) {
+            state.pool = cachedPool;
+            state.page = 1;
+            ui.status.textContent = `⚡ Loaded cached results (${state.pool.length} servers)`;
+            renderResults(ui);
+            return;
+        }
+
+        abortActiveRequests();
         recordScan();
         state.scanning = true;
         state.token++;
         const token = state.token;
         state.pool = [];
+        state.page = 1;
 
         ui.scanBtn.disabled = true;
         ui.scanBtn.textContent = 'Scanning...';
@@ -256,11 +315,14 @@
             }
 
             state.pool = [...new Map(state.pool.map(s => [s.id, s])).values()];
+            setCachedPool(placeId, state.pool);
             ui.status.textContent = `✅ Found ${state.pool.length} servers`;
             renderResults(ui);
         } catch (e) {
             const errMsg = e.message || String(e);
-            if (errMsg.includes('429')) {
+            if (errMsg.includes('ABORTED')) {
+                ui.status.textContent = '⏹️ Previous scan canceled';
+            } else if (errMsg.includes('429')) {
                 ui.status.textContent = '⏸️ Rate limited (429). Try again later.';
             } else if (errMsg.includes('403')) {
                 ui.status.textContent = '🚫 Access denied (403). Refresh page.';
@@ -269,32 +331,32 @@
             }
         } finally {
             state.scanning = false;
+            activeRequests.clear();
             updateRateLimitUI(ui);
             startCooldownTimer(ui);
         }
     }
 
     // ==============================
-    //  RENDER RESULTS (FIXED FILTER)
+    //  RENDER RESULTS
     // ==============================
     function renderResults(ui) {
-        const f = state.filter;
-        let list = [];
-
-        if (f === 'all') {
-            list = state.pool;
-        } else {
-            // FIXED: Direct filter by regionTag
-            list = state.pool.filter(s => s.regionTag === f);
-        }
+        let list = [...state.pool];
 
         list = list.sort((a, b) =>
             state.sortBy === 'ping' ? a.ping - b.ping : b.playing - a.playing
-        ).slice(0, 80);
+        );
+
+        const total = list.length;
+        const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+        if (state.page > totalPages) state.page = totalPages;
+
+        const start = (state.page - 1) * PAGE_SIZE;
+        const pageItems = list.slice(start, start + PAGE_SIZE);
 
         const placeId = window.location.pathname.split('/')[2];
 
-        if (!list.length) {
+        if (!pageItems.length) {
             ui.results.innerHTML = `
                 <div style="padding:60px 20px; text-align:center; color:#999; width:100%;">
                     <div style="font-size:48px; margin-bottom:12px;">📡</div>
@@ -306,13 +368,13 @@
             return;
         }
 
-        ui.results.innerHTML = list.map((s, i) => {
+        ui.results.innerHTML = pageItems.map((s, i) => {
             const pColor = getPingColor(s.ping);
             const pLabel = getPingLabel(s.ping);
             const age = estimateServerAge(s);
-            const regionInfo = REGIONS[s.regionTag] || { label: s.regionTag, flag: '🌐' };
+            const locationLabel = getLocationLabel(s.regionTag);
             const fillPct = Math.round((s.playing / s.maxPlayers) * 100);
-            const rank = i + 1;
+            const rank = start + i + 1;
 
             return `
             <div class="server-card" style="
@@ -335,10 +397,10 @@
                 <!-- Rank Badge -->
                 <div style="position:absolute; top:12px; right:12px; background:#ff8c42; color:white; font-size:11px; font-weight:700; border-radius:6px; padding:4px 10px;">#${rank}</div>
 
-                <!-- Region -->
-                <div style="font-size:12px; color:#666; font-weight:500; display:flex; align-items:center; gap:6px;">
-                    <span>${regionInfo.flag}</span>
-                    <span>${regionInfo.label}</span>
+                <!-- Server ID + Location -->
+                <div style="font-size:11px; color:#666; font-weight:600; display:flex; flex-direction:column; gap:4px; padding-right:52px;">
+                    <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">ID: ${s.id}</span>
+                    <span style="color:#ff8c42;">Location: ${locationLabel}</span>
                 </div>
 
                 <!-- Ping (Big) -->
@@ -386,23 +448,56 @@
                 </button>
             </div>`;
         }).join('');
-    }
 
-    // ==============================
-    //  DROPDOWN
-    // ==============================
-    function buildDropdownOptions() {
-        let html = '<option value="all">🌍 All Regions</option>';
-        for (const group of GROUP_ORDER) {
-            html += `<optgroup label="━━ ${group.toUpperCase()} ━━">`;
-            for (const [key, info] of Object.entries(REGIONS)) {
-                if (info.group === group) {
-                    html += `<option value="${key}">${info.flag} ${info.label}</option>`;
+        ui.pager.innerHTML = `
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:14px;">
+                <div style="font-size:12px; color:#777; font-weight:600;">
+                    Showing <span style="color:#ff8c42;">${start + 1}-${Math.min(start + PAGE_SIZE, total)}</span> of <span style="color:#333;">${total}</span> servers
+                </div>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <button id="rb9-prev-page" ${state.page <= 1 ? 'disabled' : ''} style="
+                        background:${state.page <= 1 ? '#eee' : '#fff'};
+                        color:${state.page <= 1 ? '#aaa' : '#ff8c42'};
+                        border:2px solid ${state.page <= 1 ? '#eee' : '#ff8c42'};
+                        padding:8px 12px;
+                        border-radius:8px;
+                        cursor:${state.page <= 1 ? 'not-allowed' : 'pointer'};
+                        font-weight:700;
+                    ">← Prev</button>
+                    <span style="font-size:12px; color:#666; font-weight:700; min-width:72px; text-align:center;">
+                        Page ${state.page}/${totalPages}
+                    </span>
+                    <button id="rb9-next-page" ${state.page >= totalPages ? 'disabled' : ''} style="
+                        background:${state.page >= totalPages ? '#eee' : '#ff8c42'};
+                        color:${state.page >= totalPages ? '#aaa' : '#fff'};
+                        border:2px solid ${state.page >= totalPages ? '#eee' : '#ff8c42'};
+                        padding:8px 12px;
+                        border-radius:8px;
+                        cursor:${state.page >= totalPages ? 'not-allowed' : 'pointer'};
+                        font-weight:700;
+                    ">Next →</button>
+                </div>
+            </div>
+        `;
+
+        const prevBtn = ui.pager.querySelector('#rb9-prev-page');
+        const nextBtn = ui.pager.querySelector('#rb9-next-page');
+        if (prevBtn) {
+            prevBtn.onclick = () => {
+                if (state.page > 1) {
+                    state.page--;
+                    renderResults(ui);
                 }
-            }
-            html += '</optgroup>';
+            };
         }
-        return html;
+        if (nextBtn) {
+            nextBtn.onclick = () => {
+                if (state.page < totalPages) {
+                    state.page++;
+                    renderResults(ui);
+                }
+            };
+        }
     }
 
     // ==============================
@@ -441,24 +536,6 @@
                 </div>
 
                 <div style="display:flex; gap:10px; margin-left:auto; flex-wrap:wrap; align-items:center;">
-                    <!-- Region Select -->
-                    <select id="rb9-region" style="
-                        background: white;
-                        color: #ff8c42;
-                        border: 2px solid #ff8c42;
-                        padding: 10px 14px;
-                        border-radius: 10px;
-                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                        font-size: 13px;
-                        font-weight: 600;
-                        cursor: pointer;
-                        min-width: 180px;
-                        transition: all 0.3s ease;
-                    " onmouseover="this.style.background='#ff8c42';this.style.color='white'"
-                       onmouseout="this.style.background='white';this.style.color='#ff8c42'">
-                        ${buildDropdownOptions()}
-                    </select>
-
                     <!-- Sort Select -->
                     <select id="rb9-sort" style="
                         background: white;
@@ -504,6 +581,7 @@
             </div>
 
             <!-- Results Grid -->
+            <div id="rb9-pager" style="margin-bottom:14px;"></div>
             <div id="rb9-results" style="display:flex; flex-wrap:wrap; gap:14px; min-height:80px; margin-bottom:20px;"></div>
 
             <!-- Legend -->
@@ -522,18 +600,15 @@
             scanBtn: root.querySelector('#rb9-scan'),
             status: root.querySelector('#rb9-status'),
             bar: root.querySelector('#rb9-bar'),
+            pager: root.querySelector('#rb9-pager'),
             results: root.querySelector('#rb9-results'),
-            region: root.querySelector('#rb9-region'),
             sort: root.querySelector('#rb9-sort'),
         };
 
         ui.scanBtn.onclick = () => scan(ui, placeId);
-        ui.region.onchange = e => {
-            state.filter = e.target.value;
-            if (state.pool.length) renderResults(ui);
-        };
         ui.sort.onchange = e => {
             state.sortBy = e.target.value;
+            state.page = 1;
             if (state.pool.length) renderResults(ui);
         };
 
