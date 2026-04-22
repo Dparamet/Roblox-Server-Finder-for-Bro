@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         🎯 Roblox Low Ping Finder v8.1 (Stable)
-// @version      8.1
-// @description  Find low ping servers with clean UI — Region filter, player count, server age
+// @name         🎯 Roblox Low Ping Finder v9.0 (Modern UI)
+// @version      9.0
+// @description  Modern UI with fixed region filter — Orange/White theme, clear visibility
 // @author       D & Claude Bro
 // @match        https://www.roblox.com/games/*
 // @connect      games.roblox.com
@@ -16,34 +16,28 @@
     // ==============================
     const MAX_PAGES = 6;
     const MAX_PING = 350;
-    const THROTTLE_MS = 900;  // Throttle between requests (stable)
+    const THROTTLE_MS = 900;
     const RETRY_ATTEMPTS = 4;
-    const RETRY_BASE_DELAY = 1200; // Start at 1.2s
+    const RETRY_BASE_DELAY = 1200;
 
-    // Roblox actual datacenter regions
+    // Roblox datacenter regions
     const REGIONS = {
         'all': { label: 'All Regions', flag: '🌍', group: null },
-        // Asia
         'sg': { label: 'Singapore', flag: '🇸🇬', group: 'Asia', keywords: ['singapore','|sg|',' sg ','sng'] },
         'jp': { label: 'Japan', flag: '🇯🇵', group: 'Asia', keywords: ['tokyo','japan','|jp|','nrt','hnd'] },
         'kr': { label: 'South Korea', flag: '🇰🇷', group: 'Asia', keywords: ['seoul','korea','|kr|','icn'] },
         'au': { label: 'Australia', flag: '🇦🇺', group: 'Asia', keywords: ['sydney','australia','|au|','syd'] },
-        // US
-        'us-east': { label: 'US East (Ashburn)', flag: '🇺🇸', group: 'Americas', keywords: ['ashburn','virginia','us-east','iad'] },
-        'us-central': { label: 'US Central (Dallas)', flag: '🇺🇸', group: 'Americas', keywords: ['dallas','texas','us-central','dfw'] },
-        'us-west': { label: 'US West (San Jose)', flag: '🇺🇸', group: 'Americas', keywords: ['san jose','california','us-west','sjc'] },
+        'us-east': { label: 'US East', flag: '🇺🇸', group: 'Americas', keywords: ['ashburn','virginia','us-east','iad'] },
+        'us-central': { label: 'US Central', flag: '🇺🇸', group: 'Americas', keywords: ['dallas','texas','us-central','dfw'] },
+        'us-west': { label: 'US West', flag: '🇺🇸', group: 'Americas', keywords: ['san jose','california','us-west','sjc'] },
         'br': { label: 'Brazil', flag: '🇧🇷', group: 'Americas', keywords: ['brazil','brasil','|br|','gru'] },
-        // Europe
-        'de': { label: 'Germany (Frankfurt)', flag: '🇩🇪', group: 'Europe', keywords: ['frankfurt','germany','|de|','fra'] },
-        'gb': { label: 'UK (London)', flag: '🇬🇧', group: 'Europe', keywords: ['london','united kingdom','|gb|','|uk|','lhr'] },
-        'fr': { label: 'France (Paris)', flag: '🇫🇷', group: 'Europe', keywords: ['paris','france','|fr|','cdg'] },
+        'de': { label: 'Germany', flag: '🇩🇪', group: 'Europe', keywords: ['frankfurt','germany','|de|','fra'] },
+        'gb': { label: 'UK', flag: '🇬🇧', group: 'Europe', keywords: ['london','united kingdom','|gb|','|uk|','lhr'] },
+        'fr': { label: 'France', flag: '🇫🇷', group: 'Europe', keywords: ['paris','france','|fr|','cdg'] },
     };
 
     const GROUP_ORDER = ['Asia', 'Americas', 'Europe'];
 
-    // ==============================
-    //  STATE
-    // ==============================
     let state = {
         scanning: false,
         token: 0,
@@ -56,9 +50,9 @@
     //  RATE LIMITER
     // ==============================
     const RATE_LIMIT = {
-        maxScans: 8,        // Max scans per minute
-        windowMs: 60000,    // 1 minute window
-        scans: [],          // Timestamps of recent scans
+        maxScans: 8,
+        windowMs: 60000,
+        scans: [],
     };
 
     function canScan() {
@@ -87,12 +81,14 @@
 
         if (canGo) {
             ui.scanBtn.disabled = false;
-            ui.scanBtn.style.background = '#7c3aed';
-            ui.status.textContent = `Ready (${scansUsed}/${RATE_LIMIT.maxScans} used today)`;
+            ui.scanBtn.style.background = '#ff8c42';
+            ui.scanBtn.style.color = 'white';
+            ui.status.textContent = `Ready (${scansUsed}/${RATE_LIMIT.maxScans})`;
         } else {
             ui.scanBtn.disabled = true;
-            ui.scanBtn.style.background = '#4b5563';
-            ui.status.innerHTML = `⏱️ Cooldown: <span style="color:#f87171; font-weight:700;">${timeLeft}s</span> remaining (${scansUsed}/${RATE_LIMIT.maxScans})`;
+            ui.scanBtn.style.background = '#ddd';
+            ui.scanBtn.style.color = '#666';
+            ui.status.innerHTML = `⏱️ Wait <span style="color:#ff8c42; font-weight:700;">${timeLeft}s</span> (${scansUsed}/${RATE_LIMIT.maxScans})`;
         }
     }
 
@@ -151,26 +147,21 @@
             } catch (err) {
                 lastError = String(err);
                 const isRetryable = ['429', '403', '401', 'TIMEOUT', 'NETWORK_ERROR'].includes(err);
-                
-                if (!isRetryable || attempt === maxRetries - 1) {
-                    throw new Error(lastError);
-                }
-
+                if (!isRetryable || attempt === maxRetries - 1) throw new Error(lastError);
                 const waitMs = RETRY_BASE_DELAY * Math.pow(1.5, attempt);
-                console.log(`[Retry ${attempt + 1}/${maxRetries}] ${lastError} - Wait ${Math.round(waitMs)}ms`);
                 await delay(waitMs);
             }
         }
     }
 
     // ==============================
-    //  REGION DETECTION
+    //  REGION DETECTION (FIXED)
     // ==============================
     function detectRegion(server) {
         const raw = JSON.stringify(server).toLowerCase();
         for (const [key, info] of Object.entries(REGIONS)) {
             if (key === 'all') continue;
-            if (info.keywords.some(k => raw.includes(k))) return key;
+            if (info.keywords && info.keywords.some(k => raw.includes(k))) return key;
         }
         return 'unknown';
     }
@@ -180,17 +171,17 @@
     // ==============================
     function estimateServerAge(server) {
         const ratio = server.playing / server.maxPlayers;
-        if (ratio < 0.2) return { label: 'Fresh', color: '#4ade80' };
-        if (ratio < 0.7) return { label: 'Active', color: '#facc15' };
-        return { label: 'Full', color: '#f87171' };
+        if (ratio < 0.2) return { label: 'Fresh', color: '#4CAF50' };
+        if (ratio < 0.7) return { label: 'Active', color: '#ff9800' };
+        return { label: 'Full', color: '#f44336' };
     }
 
     function getPingColor(ping) {
-        if (ping <= 80) return '#4ade80';
-        if (ping <= 130) return '#a3e635';
-        if (ping <= 180) return '#facc15';
-        if (ping <= 240) return '#fb923c';
-        return '#f87171';
+        if (ping <= 80) return '#4CAF50';
+        if (ping <= 130) return '#8BC34A';
+        if (ping <= 180) return '#ff9800';
+        if (ping <= 240) return '#ff7043';
+        return '#f44336';
     }
 
     function getPingLabel(ping) {
@@ -205,14 +196,13 @@
     //  SCAN LOGIC
     // ==============================
     async function scan(ui, placeId) {
-        // Check rate limit FIRST
         if (!canScan()) {
             const timeLeft = getTimeUntilNextScan();
-            ui.status.innerHTML = `⏱️ Cooldown! Wait <span style="color:#f87171; font-weight:700;">${timeLeft}s</span>`;
+            ui.status.innerHTML = `⏱️ Wait <span style="color:#ff8c42; font-weight:700;">${timeLeft}s</span>`;
             return;
         }
 
-        recordScan(); // Mark this scan timestamp
+        recordScan();
         state.scanning = true;
         state.token++;
         const token = state.token;
@@ -220,7 +210,7 @@
 
         ui.scanBtn.disabled = true;
         ui.scanBtn.textContent = 'Scanning...';
-        ui.status.textContent = 'Initializing scan...';
+        ui.status.textContent = 'Initializing...';
         ui.results.innerHTML = '';
         ui.bar.style.width = '0%';
 
@@ -231,7 +221,6 @@
             for (let i = 0; i < MAX_PAGES; i++) {
                 if (!state.scanning || token !== state.token) break;
 
-                // Throttle before request
                 if (i > 0) await delay(THROTTLE_MS);
 
                 const pct = Math.round(((i + 1) / MAX_PAGES) * 100);
@@ -261,43 +250,43 @@
                     if (!cursor) break;
                 } catch (pageErr) {
                     console.error('Page error:', pageErr.message);
-                    if (pageCount === 0) throw pageErr; // Fail if first page fails
-                    break; // Stop scanning but use what we got
+                    if (pageCount === 0) throw pageErr;
+                    break;
                 }
             }
 
-            // Deduplicate
             state.pool = [...new Map(state.pool.map(s => [s.id, s])).values()];
             ui.status.textContent = `✅ Found ${state.pool.length} servers`;
             renderResults(ui);
         } catch (e) {
             const errMsg = e.message || String(e);
-            console.error('Scan error:', errMsg);
-            
             if (errMsg.includes('429')) {
-                ui.status.textContent = '⏸️ Rate limited (429). Wait 1-2 min & retry.';
+                ui.status.textContent = '⏸️ Rate limited (429). Try again later.';
             } else if (errMsg.includes('403')) {
-                ui.status.textContent = '🚫 Access denied (403). Try refreshing page.';
-            } else if (errMsg.includes('NETWORK')) {
-                ui.status.textContent = '🌐 Network error. Check connection.';
+                ui.status.textContent = '🚫 Access denied (403). Refresh page.';
             } else {
                 ui.status.textContent = `❌ Error: ${errMsg}`;
             }
         } finally {
             state.scanning = false;
-            updateRateLimitUI(ui); // Update button status
-            startCooldownTimer(ui); // Start countdown timer
+            updateRateLimitUI(ui);
+            startCooldownTimer(ui);
         }
     }
 
     // ==============================
-    //  RENDER RESULTS
+    //  RENDER RESULTS (FIXED FILTER)
     // ==============================
     function renderResults(ui) {
         const f = state.filter;
-        let list = f === 'all'
-            ? state.pool
-            : state.pool.filter(s => s.regionTag === f || (s.regionTag === 'unknown' && f === 'unknown'));
+        let list = [];
+
+        if (f === 'all') {
+            list = state.pool;
+        } else {
+            // FIXED: Direct filter by regionTag
+            list = state.pool.filter(s => s.regionTag === f);
+        }
 
         list = list.sort((a, b) =>
             state.sortBy === 'ping' ? a.ping - b.ping : b.playing - a.playing
@@ -307,10 +296,12 @@
 
         if (!list.length) {
             ui.results.innerHTML = `
-                <div style="padding:40px 20px; text-align:center; color:#6b7280; font-family:'IBM Plex Mono',monospace; width:100%;">
-                    <div style="font-size:32px; margin-bottom:8px;">📡</div>
-                    <div>No servers found for <b style="color:#a78bfa">${f.toUpperCase()}</b></div>
-                    <div style="font-size:12px; margin-top:6px;">Try scanning again or switch to All Regions</div>
+                <div style="padding:60px 20px; text-align:center; color:#999; width:100%;">
+                    <div style="font-size:48px; margin-bottom:12px;">📡</div>
+                    <div style="font-size:16px; font-weight:600; color:#666;">No Servers Found</div>
+                    <div style="font-size:13px; margin-top:8px; color:#aaa;">
+                        Try <b>All Regions</b> or scan again
+                    </div>
                 </div>`;
             return;
         }
@@ -324,78 +315,86 @@
             const rank = i + 1;
 
             return `
-            <div class="rb8-card" data-id="${s.id}" style="
-                background: #111318;
-                border: 1px solid #1f2230;
-                border-radius: 12px;
-                width: 180px;
-                padding: 14px;
+            <div class="server-card" style="
+                background: white;
+                border: 2px solid #f0f0f0;
+                border-radius: 14px;
+                width: 200px;
+                padding: 16px;
                 display: inline-flex;
                 flex-direction: column;
-                gap: 8px;
-                font-family: 'IBM Plex Mono', monospace;
+                gap: 10px;
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
                 position: relative;
-                transition: border-color 0.2s, transform 0.15s;
+                transition: all 0.3s ease;
                 cursor: default;
-            " onmouseover="this.style.borderColor='${pColor}';this.style.transform='translateY(-2px)'"
-               onmouseout="this.style.borderColor='#1f2230';this.style.transform='none'">
+                box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            " onmouseover="this.style.borderColor='${pColor}';this.style.boxShadow='0 8px 24px rgba(255,140,66,0.15)';this.style.transform='translateY(-4px)'"
+               onmouseout="this.style.borderColor='#f0f0f0';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)';this.style.transform='none'">
 
-                <div style="position:absolute; top:10px; right:10px; background:#1f2230; color:#4b5563; font-size:10px; border-radius:4px; padding:1px 5px;">#${rank}</div>
+                <!-- Rank Badge -->
+                <div style="position:absolute; top:12px; right:12px; background:#ff8c42; color:white; font-size:11px; font-weight:700; border-radius:6px; padding:4px 10px;">#${rank}</div>
 
-                <div style="font-size:11px; color:#6b7280; display:flex; align-items:center; gap:4px;">
+                <!-- Region -->
+                <div style="font-size:12px; color:#666; font-weight:500; display:flex; align-items:center; gap:6px;">
                     <span>${regionInfo.flag}</span>
-                    <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:120px;">${regionInfo.label}</span>
+                    <span>${regionInfo.label}</span>
                 </div>
 
+                <!-- Ping (Big) -->
                 <div style="display:flex; align-items:baseline; gap:6px;">
-                    <span style="font-size:26px; font-weight:700; color:${pColor}; letter-spacing:-1px;">${s.ping}</span>
-                    <span style="font-size:11px; color:#4b5563;">ms</span>
-                    <span style="font-size:10px; color:${pColor}; margin-left:auto;">${pLabel}</span>
+                    <span style="font-size:32px; font-weight:700; color:${pColor}; line-height:1;">${s.ping}</span>
+                    <span style="font-size:12px; color:#999;">ms</span>
+                    <span style="font-size:11px; color:${pColor}; font-weight:600; margin-left:auto;">${pLabel}</span>
                 </div>
 
+                <!-- Player Bar -->
                 <div>
-                    <div style="display:flex; justify-content:space-between; font-size:10px; color:#6b7280; margin-bottom:4px;">
+                    <div style="display:flex; justify-content:space-between; font-size:11px; color:#666; margin-bottom:6px; font-weight:500;">
                         <span>👥 ${s.playing}/${s.maxPlayers}</span>
-                        <span style="color:${age.color}">${age.label}</span>
+                        <span style="color:${age.color}; font-weight:700;">${age.label}</span>
                     </div>
-                    <div style="height:4px; background:#1f2230; border-radius:2px; overflow:hidden;">
-                        <div style="height:100%; width:${fillPct}%; background:${pColor}; border-radius:2px; transition:width 0.5s;"></div>
+                    <div style="height:6px; background:#e0e0e0; border-radius:3px; overflow:hidden;">
+                        <div style="height:100%; width:${fillPct}%; background:${pColor}; border-radius:3px; transition:width 0.5s;"></div>
                     </div>
                 </div>
 
-                <div style="font-size:10px; color:#4b5563; display:flex; justify-content:space-between;">
-                    <span>FPS: <span style="color:#6b7280">${s.fps > 0 ? Math.round(s.fps) : '?'}</span></span>
-                    <span>Free: <span style="color:#6b7280">${s.maxPlayers - s.playing}</span></span>
+                <!-- Info Row -->
+                <div style="font-size:10px; color:#999; display:flex; justify-content:space-between; border-top:1px solid #f0f0f0; padding-top:8px;">
+                    <span>FPS: <span style="color:#333; font-weight:600">${s.fps > 0 ? Math.round(s.fps) : '?'}</span></span>
+                    <span>Free: <span style="color:#333; font-weight:600">${s.maxPlayers - s.playing}</span></span>
                 </div>
 
+                <!-- Join Button -->
                 <button onclick="window.location.href='roblox://placeId=${placeId}&gameInstanceId=${s.id}'" style="
                     width: 100%;
-                    background: transparent;
-                    color: ${pColor};
-                    border: 1px solid ${pColor};
-                    padding: 7px;
+                    background: ${pColor};
+                    color: white;
+                    border: none;
+                    padding: 10px;
                     border-radius: 8px;
                     cursor: pointer;
                     font-weight: 700;
-                    font-size: 11px;
-                    font-family: 'IBM Plex Mono', monospace;
+                    font-size: 12px;
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
                     letter-spacing: 0.5px;
-                    transition: background 0.2s, color 0.2s;
-                " onmouseover="this.style.background='${pColor}';this.style.color='#000'"
-                   onmouseout="this.style.background='transparent';this.style.color='${pColor}'">
-                    JOIN →
+                    transition: all 0.3s ease;
+                    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+                " onmouseover="this.style.transform='scale(1.05)';this.style.boxShadow='0 6px 16px rgba(0,0,0,0.15)'"
+                   onmouseout="this.style.transform='scale(1)';this.style.boxShadow='0 4px 8px rgba(0,0,0,0.1)'">
+                    JOIN SERVER →
                 </button>
             </div>`;
         }).join('');
     }
 
     // ==============================
-    //  DROPDOWN OPTIONS
+    //  DROPDOWN
     // ==============================
     function buildDropdownOptions() {
         let html = '<option value="all">🌍 All Regions</option>';
         for (const group of GROUP_ORDER) {
-            html += `<optgroup label="── ${group} ──">`;
+            html += `<optgroup label="━━ ${group.toUpperCase()} ━━">`;
             for (const [key, info] of Object.entries(REGIONS)) {
                 if (info.group === group) {
                     html += `<option value="${key}">${info.flag} ${info.label}</option>`;
@@ -411,114 +410,121 @@
     // ==============================
     function init() {
         const placeId = window.location.pathname.split('/')[2];
-        if (!placeId || document.getElementById('rb8-root')) return;
+        if (!placeId || document.getElementById('rb9-root')) return;
 
         const anchor = document.querySelector('.server-list-options')
             || document.querySelector('#rbx-running-games')
             || document.querySelector('.stack.section');
         if (!anchor) return;
 
-        // Inject Google Font
-        if (!document.getElementById('rb8-font')) {
-            const link = document.createElement('link');
-            link.id = 'rb8-font';
-            link.rel = 'stylesheet';
-            link.href = 'https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&display=swap';
-            document.head.appendChild(link);
-        }
-
         const root = document.createElement('div');
-        root.id = 'rb8-root';
+        root.id = 'rb9-root';
         root.style = `
-            background: #0c0e13;
-            border: 1px solid #1f2230;
-            border-radius: 16px;
-            padding: 20px;
-            margin: 20px 0;
-            font-family: 'IBM Plex Mono', monospace;
-            color: white;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+            background: linear-gradient(135deg, #ffffff 0%, #f8f8f8 100%);
+            border: 2px solid #ff8c42;
+            border-radius: 18px;
+            padding: 28px;
+            margin: 24px 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #333;
+            box-shadow: 0 12px 40px rgba(255,140,66,0.12);
         `;
 
         root.innerHTML = `
-            <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px; flex-wrap:wrap;">
+            <!-- Header -->
+            <div style="display:flex; align-items:center; gap:16px; margin-bottom:20px; flex-wrap:wrap;">
                 <div>
-                    <div style="font-size:15px; font-weight:700; letter-spacing:1px; color:#a78bfa;">
-                        LOW PING FINDER v8.1
+                    <div style="font-size:22px; font-weight:700; letter-spacing:0.5px; color:#ff8c42;">
+                        🎯 LOW PING FINDER
                     </div>
-                    <div id="rb8-status" style="font-size:11px; color:#4b5563; margin-top:2px;">Ready</div>
+                    <div id="rb9-status" style="font-size:12px; color:#999; margin-top:4px; font-weight:500;">Ready to scan</div>
                 </div>
 
-                <div style="display:flex; gap:8px; margin-left:auto; flex-wrap:wrap; align-items:center;">
-                    <select id="rb8-region" style="
-                        background: #111318;
-                        color: #c4b5fd;
-                        border: 1px solid #2d2f40;
-                        padding: 7px 10px;
-                        border-radius: 8px;
-                        font-family: 'IBM Plex Mono', monospace;
-                        font-size: 12px;
+                <div style="display:flex; gap:10px; margin-left:auto; flex-wrap:wrap; align-items:center;">
+                    <!-- Region Select -->
+                    <select id="rb9-region" style="
+                        background: white;
+                        color: #ff8c42;
+                        border: 2px solid #ff8c42;
+                        padding: 10px 14px;
+                        border-radius: 10px;
+                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                        font-size: 13px;
+                        font-weight: 600;
                         cursor: pointer;
-                        min-width: 160px;
-                    ">${buildDropdownOptions()}</select>
-
-                    <select id="rb8-sort" style="
-                        background: #111318;
-                        color: #9ca3af;
-                        border: 1px solid #2d2f40;
-                        padding: 7px 10px;
-                        border-radius: 8px;
-                        font-family: 'IBM Plex Mono', monospace;
-                        font-size: 12px;
-                        cursor: pointer;
-                    ">
-                        <option value="ping">Sort: Ping ↑</option>
-                        <option value="players">Sort: Players ↓</option>
+                        min-width: 180px;
+                        transition: all 0.3s ease;
+                    " onmouseover="this.style.background='#ff8c42';this.style.color='white'"
+                       onmouseout="this.style.background='white';this.style.color='#ff8c42'">
+                        ${buildDropdownOptions()}
                     </select>
 
-                    <button id="rb8-scan" style="
-                        background: #7c3aed;
+                    <!-- Sort Select -->
+                    <select id="rb9-sort" style="
+                        background: white;
+                        color: #333;
+                        border: 2px solid #ddd;
+                        padding: 10px 14px;
+                        border-radius: 10px;
+                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                        font-size: 13px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        transition: all 0.3s ease;
+                    " onmouseover="this.style.borderColor='#ff8c42';this.style.color='#ff8c42'"
+                       onmouseout="this.style.borderColor='#ddd';this.style.color='#333'">
+                        <option value="ping">📍 Ping ↑</option>
+                        <option value="players">👥 Players ↓</option>
+                    </select>
+
+                    <!-- Scan Button -->
+                    <button id="rb9-scan" style="
+                        background: #ff8c42;
                         color: white;
                         border: none;
-                        padding: 8px 18px;
-                        border-radius: 8px;
-                        font-family: 'IBM Plex Mono', monospace;
-                        font-size: 12px;
+                        padding: 11px 28px;
+                        border-radius: 10px;
+                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                        font-size: 13px;
                         font-weight: 700;
                         cursor: pointer;
                         letter-spacing: 0.5px;
-                        transition: background 0.2s;
-                    " onmouseover="this.style.background='#6d28d9'"
-                       onmouseout="this.style.background='#7c3aed'">
-                        🔍 Scan
+                        transition: all 0.3s ease;
+                        box-shadow: 0 4px 12px rgba(255,140,66,0.3);
+                    " onmouseover="this.style.background='#ff7a33';this.style.boxShadow='0 6px 20px rgba(255,140,66,0.4)';this.style.transform='translateY(-2px)'"
+                       onmouseout="this.style.background='#ff8c42';this.style.boxShadow='0 4px 12px rgba(255,140,66,0.3)';this.style.transform='none'">
+                        🔍 SCAN
                     </button>
                 </div>
             </div>
 
-            <div style="height:3px; background:#1f2230; border-radius:2px; margin-bottom:16px; overflow:hidden;">
-                <div id="rb8-bar" style="height:100%; width:0%; background:linear-gradient(90deg,#7c3aed,#a78bfa); transition:width 0.4s;"></div>
+            <!-- Progress Bar -->
+            <div style="height:4px; background:#e0e0e0; border-radius:2px; margin-bottom:20px; overflow:hidden;">
+                <div id="rb9-bar" style="height:100%; width:0%; background:linear-gradient(90deg, #ff8c42, #ffa500); transition:width 0.4s ease;"></div>
             </div>
 
-            <div id="rb8-results" style="display:flex; flex-wrap:wrap; gap:10px; min-height:60px;"></div>
+            <!-- Results Grid -->
+            <div id="rb9-results" style="display:flex; flex-wrap:wrap; gap:14px; min-height:80px; margin-bottom:20px;"></div>
 
-            <div style="margin-top:14px; display:flex; gap:16px; flex-wrap:wrap; font-size:10px; color:#374151; border-top:1px solid #1f2230; padding-top:12px;">
-                <span><span style="color:#4ade80">●</span> Excellent ≤80ms</span>
-                <span><span style="color:#a3e635">●</span> Good ≤130ms</span>
-                <span><span style="color:#facc15">●</span> Fair ≤180ms</span>
-                <span><span style="color:#fb923c">●</span> Slow ≤240ms</span>
-                <span><span style="color:#f87171">●</span> Poor 240ms+</span>
+            <!-- Legend -->
+            <div style="display:flex; gap:20px; flex-wrap:wrap; font-size:11px; color:#999; border-top:2px solid #f0f0f0; padding-top:16px; margin-top:20px;">
+                <span><span style="color:#4CAF50; font-weight:700;">●</span> Excellent ≤80ms</span>
+                <span><span style="color:#8BC34A; font-weight:700;">●</span> Good ≤130ms</span>
+                <span><span style="color:#ff9800; font-weight:700;">●</span> Fair ≤180ms</span>
+                <span><span style="color:#ff7043; font-weight:700;">●</span> Slow ≤240ms</span>
+                <span><span style="color:#f44336; font-weight:700;">●</span> Poor 240ms+</span>
             </div>
         `;
 
         anchor.after(root);
 
         const ui = {
-            scanBtn: root.querySelector('#rb8-scan'),
-            status: root.querySelector('#rb8-status'),
-            bar: root.querySelector('#rb8-bar'),
-            results: root.querySelector('#rb8-results'),
-            region: root.querySelector('#rb8-region'),
-            sort: root.querySelector('#rb8-sort'),
+            scanBtn: root.querySelector('#rb9-scan'),
+            status: root.querySelector('#rb9-status'),
+            bar: root.querySelector('#rb9-bar'),
+            results: root.querySelector('#rb9-results'),
+            region: root.querySelector('#rb9-region'),
+            sort: root.querySelector('#rb9-sort'),
         };
 
         ui.scanBtn.onclick = () => scan(ui, placeId);
@@ -531,12 +537,11 @@
             if (state.pool.length) renderResults(ui);
         };
 
-        // Initialize rate limit UI
         updateRateLimitUI(ui);
         startCooldownTimer(ui);
     }
 
-    // Wait for page to be ready
+    // Wait for page
     let attempts = 0;
     const ticker = setInterval(() => {
         if (++attempts > 30) clearInterval(ticker);

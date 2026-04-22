@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-label="Preview of Roblox Low Ping Finder UI">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fff8f1"/>
+      <stop offset="55%" stop-color="#fffdfb"/>
+      <stop offset="100%" stop-color="#f6f7fb"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#fff7ef"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#ff8c42"/>
+      <stop offset="100%" stop-color="#ffb24d"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="24" flood-color="#ff8c42" flood-opacity="0.12"/>
+    </filter>
+    <filter id="cardShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.08"/>
+    </filter>
+  </defs>
+
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <circle cx="1280" cy="120" r="120" fill="#ffe8d3" opacity="0.8"/>
+  <circle cx="220" cy="760" r="150" fill="#ffe7d0" opacity="0.7"/>
+  <circle cx="1420" cy="720" r="180" fill="#eef2ff" opacity="0.8"/>
+
+  <g filter="url(#shadow)">
+    <rect x="120" y="90" rx="28" ry="28" width="1360" height="720" fill="url(#panel)" stroke="#ffb066" stroke-width="3"/>
+  </g>
+
+  <text x="170" y="165" font-family="Segoe UI, Arial, sans-serif" font-size="38" font-weight="800" fill="#ff8c42">LOW PING FINDER</text>
+  <text x="170" y="198" font-family="Segoe UI, Arial, sans-serif" font-size="18" fill="#8d8d8d">Roblox low ping server browser</text>
+
+  <rect x="1020" y="132" rx="14" ry="14" width="170" height="48" fill="#ffffff" stroke="#ff8c42" stroke-width="2"/>
+  <text x="1050" y="163" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" fill="#ff8c42">All Regions</text>
+
+  <rect x="1208" y="132" rx="14" ry="14" width="150" height="48" fill="#ffffff" stroke="#e2e2e2" stroke-width="2"/>
+  <text x="1248" y="163" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" fill="#444444">Ping ↑</text>
+
+  <rect x="1370" y="128" rx="16" ry="16" width="88" height="56" fill="url(#accent)"/>
+  <text x="1395" y="163" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="800" fill="#ffffff">SCAN</text>
+
+  <rect x="170" y="242" width="1260" height="8" rx="4" fill="#e7e7e7"/>
+  <rect x="170" y="242" width="860" height="8" rx="4" fill="url(#accent)"/>
+
+  <g font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700" fill="#666666">
+    <text x="170" y="290">Results</text>
+    <text x="1260" y="290">Ready to join</text>
+  </g>
+
+  <g filter="url(#cardShadow)">
+    <rect x="170" y="320" rx="20" ry="20" width="360" height="320" fill="#ffffff" stroke="#f2f2f2"/>
+    <rect x="550" y="320" rx="20" ry="20" width="360" height="320" fill="#ffffff" stroke="#f2f2f2"/>
+    <rect x="930" y="320" rx="20" ry="20" width="360" height="320" fill="#ffffff" stroke="#f2f2f2"/>
+  </g>
+
+  <g font-family="Segoe UI, Arial, sans-serif">
+    <rect x="430" y="338" rx="10" ry="10" width="76" height="30" fill="#ff8c42"/>
+    <text x="451" y="359" font-size="13" font-weight="800" fill="#ffffff">#1</text>
+    <text x="202" y="362" font-size="15" font-weight="700" fill="#5b5b5b">🇸🇬 Singapore</text>
+    <text x="200" y="430" font-size="66" font-weight="800" fill="#33a852">48</text>
+    <text x="308" y="425" font-size="18" font-weight="700" fill="#33a852">ms</text>
+    <text x="408" y="425" font-size="13" font-weight="700" fill="#33a852">Excellent</text>
+    <text x="200" y="486" font-size="15" font-weight="700" fill="#555555">👥 18/30</text>
+    <rect x="200" y="500" width="300" height="10" rx="5" fill="#e7e7e7"/>
+    <rect x="200" y="500" width="180" height="10" rx="5" fill="#33a852"/>
+    <text x="200" y="548" font-size="13" fill="#848484">FPS: 60</text>
+    <text x="365" y="548" font-size="13" fill="#848484">Free: 12</text>
+    <rect x="200" y="566" rx="12" ry="12" width="300" height="44" fill="#33a852"/>
+    <text x="286" y="594" font-size="15" font-weight="800" fill="#ffffff">JOIN SERVER</text>
+
+    <rect x="810" y="338" rx="10" ry="10" width="76" height="30" fill="#ff8c42"/>
+    <text x="831" y="359" font-size="13" font-weight="800" fill="#ffffff">#2</text>
+    <text x="582" y="362" font-size="15" font-weight="700" fill="#5b5b5b">🇯🇵 Japan</text>
+    <text x="580" y="430" font-size="66" font-weight="800" fill="#ff8c42">92</text>
+    <text x="688" y="425" font-size="18" font-weight="700" fill="#ff8c42">ms</text>
+    <text x="788" y="425" font-size="13" font-weight="700" fill="#ff8c42">Good</text>
+    <text x="580" y="486" font-size="15" font-weight="700" fill="#555555">👥 24/30</text>
+    <rect x="580" y="500" width="300" height="10" rx="5" fill="#e7e7e7"/>
+    <rect x="580" y="500" width="240" height="10" rx="5" fill="#ff8c42"/>
+    <text x="580" y="548" font-size="13" fill="#848484">FPS: 58</text>
+    <text x="745" y="548" font-size="13" fill="#848484">Free: 6</text>
+    <rect x="580" y="566" rx="12" ry="12" width="300" height="44" fill="#ff8c42"/>
+    <text x="666" y="594" font-size="15" font-weight="800" fill="#ffffff">JOIN SERVER</text>
+
+    <rect x="1190" y="338" rx="10" ry="10" width="76" height="30" fill="#ff8c42"/>
+    <text x="1211" y="359" font-size="13" font-weight="800" fill="#ffffff">#3</text>
+    <text x="962" y="362" font-size="15" font-weight="700" fill="#5b5b5b">🌍 US East</text>
+    <text x="960" y="430" font-size="66" font-weight="800" fill="#f2994a">128</text>
+    <text x="1089" y="425" font-size="18" font-weight="700" fill="#f2994a">ms</text>
+    <text x="1180" y="425" font-size="13" font-weight="700" fill="#f2994a">Fair</text>
+    <text x="960" y="486" font-size="15" font-weight="700" fill="#555555">👥 10/30</text>
+    <rect x="960" y="500" width="300" height="10" rx="5" fill="#e7e7e7"/>
+    <rect x="960" y="500" width="100" height="10" rx="5" fill="#f2994a"/>
+    <text x="960" y="548" font-size="13" fill="#848484">FPS: 52</text>
+    <text x="1125" y="548" font-size="13" fill="#848484">Free: 20</text>
+    <rect x="960" y="566" rx="12" ry="12" width="300" height="44" fill="#f2994a"/>
+    <text x="1046" y="594" font-size="15" font-weight="800" fill="#ffffff">JOIN SERVER</text>
+  </g>
+
+  <g font-family="Segoe UI, Arial, sans-serif" font-size="13" fill="#8b8b8b" font-weight="600">
+    <text x="170" y="700">Legend: Excellent ≤80ms  ·  Good ≤130ms  ·  Fair ≤180ms  ·  Slow ≤240ms  ·  Poor 240ms+</text>
+  </g>
+</svg>
